@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from .import models
 
+# 1. Load variables from the .env file into the environment.
 load_dotenv()
 
 # 2. Secret key used to sign JWT tokens — now read from the environment
@@ -25,11 +26,21 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # and to extract the token from the Authorization header automatically).
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="users/login")
 
+
+def _truncate_to_72_bytes(password: str) -> str:
+    # bcrypt has a hard limit of 72 bytes per password. Newer versions of the
+    # bcrypt library raise an error instead of silently truncating, so we
+    # truncate manually here to keep behavior consistent and avoid the error.
+    return password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
+
+
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return pwd_context.hash(_truncate_to_72_bytes(password))
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    return pwd_context.verify(_truncate_to_72_bytes(plain_password), hashed_password)
+
 
 def create_access_token(data: dict):
     to_encode = data.copy()
